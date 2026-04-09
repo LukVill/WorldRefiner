@@ -12,10 +12,12 @@ const http = require('http');
 const isForceProd = process.env.ELECTRON_FORCE_PROD === '1';
 const isDev = !(app.isPackaged || isForceProd);
 
-// Global config lives in the user's appData so it is accessible before
-// we decide where the app's data root should be. This lets users point
-// the app at a custom folder where their world JSON files live.
-const globalConfigPath = path.join(app.getPath('userData'), 'config.json');
+// Global config location:
+//   dev  → <repo>/data/config.json  (gitignored, stays local)
+//   prod → <userData>/config.json   (standard per-user app data)
+const globalConfigPath = isDev
+  ? path.join(process.cwd(), 'data', 'config.json')
+  : path.join(app.getPath('userData'), 'config.json');
 
 // Load global config (if present) so we can honour an external data path
 // before computing `dataRoot`.
@@ -38,8 +40,6 @@ const defaultDataRoot = isDev
   : path.join(app.getPath('userData'), 'data');
 
 const dataRoot = externalDataPath || defaultDataRoot;
-
-const configPath = globalConfigPath;
 
 function getDataRoot() {
   try {
@@ -146,8 +146,8 @@ ipcMain.handle('worlds:delete', (_event, id) => {
 
 ipcMain.handle('config:save', (_event, config) => {
   try {
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(config || {}, null, 2), 'utf-8');
+    fs.mkdirSync(path.dirname(globalConfigPath), { recursive: true });
+    fs.writeFileSync(globalConfigPath, JSON.stringify(config || {}, null, 2), 'utf-8');
     return { ok: true };
   } catch (err) {
     console.error('Failed to save config', err);
@@ -156,9 +156,9 @@ ipcMain.handle('config:save', (_event, config) => {
 });
 
 ipcMain.handle('config:load', () => {
-  if (!fs.existsSync(configPath)) return {};
+  if (!fs.existsSync(globalConfigPath)) return {};
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) || {};
+    return JSON.parse(fs.readFileSync(globalConfigPath, 'utf-8')) || {};
   } catch (err) {
     console.error('Failed to load config', err);
     return {};

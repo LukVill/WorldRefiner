@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, ExternalLink, Trash2 } from 'lucide-react';
 import { NodeType, WorldNode } from '../../types';
 import { useWorldStore } from '../../store/worldStore';
@@ -26,6 +26,8 @@ export function NodeTree() {
   const addToast = useUIStore(s => s.addToast);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const pinnedNodes = nodes.filter(n => n.metadata.pinned).sort((a, b) => a.title.localeCompare(b.title));
@@ -36,7 +38,11 @@ export function NodeTree() {
 
   const handleContextMenu = (e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
-    setContextMenu({ nodeId, x: e.clientX, y: e.clientY });
+    const x = e.clientX;
+    const y = e.clientY;
+    setContextMenu({ nodeId, x, y });
+    // set initial menu pos; will be adjusted after mount
+    setMenuPos({ left: x, top: y });
   };
 
   const handlePin = (node: WorldNode) => {
@@ -75,6 +81,34 @@ export function NodeTree() {
       {node.metadata.pinned && <Pin size={10} style={{ opacity: 0.5, flexShrink: 0 }} />}
     </button>
   );
+
+  // adjust menu position after it's rendered so it stays within viewport
+  useEffect(() => {
+    if (!contextMenu || !menuRef.current) return;
+    const el = menuRef.current;
+    const rect = el.getBoundingClientRect();
+    const padding = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = contextMenu.x;
+    let top = contextMenu.y;
+
+    // clamp horizontally
+    if (left + rect.width + padding > vw) {
+      left = Math.max(padding, contextMenu.x - rect.width);
+    }
+    if (left < padding) left = padding;
+
+    // try to open below, otherwise open above
+    if (top + rect.height + padding > vh) {
+      // open above the click point
+      top = Math.max(padding, contextMenu.y - rect.height);
+    }
+    if (top < padding) top = padding;
+
+    setMenuPos({ left, top });
+  }, [contextMenu]);
 
   return (
     <div className="flex-1 overflow-y-auto py-2">
@@ -118,8 +152,9 @@ export function NodeTree() {
         <>
           <div className="fixed inset-0 z-30" onClick={() => setContextMenu(null)} />
           <div
+            ref={menuRef}
             className="fixed z-40 rounded-lg overflow-hidden shadow-xl py-1"
-            style={{ left: contextMenu.x, top: contextMenu.y, background: 'var(--color-surface)', border: '1px solid var(--color-border)', minWidth: 160 }}
+            style={{ left: menuPos?.left ?? contextMenu.x, top: menuPos?.top ?? contextMenu.y, background: 'var(--color-surface)', border: '1px solid var(--color-border)', minWidth: 160 }}
           >
             {(() => {
               const node = nodes.find(n => n.id === contextMenu.nodeId);

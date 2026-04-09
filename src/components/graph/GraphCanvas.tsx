@@ -50,13 +50,28 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
     const needsLayout = worldNodes.some(n => !n.graphPosition);
 
     if (needsLayout && !layoutDoneRef.current) {
+      // Initial layout: use Dagre for the full graph
       positions = computeDagreLayout(worldNodes, world.edges);
       layoutDoneRef.current = true;
-      // Persist positions
       worldNodes.forEach(n => {
         if (!n.graphPosition && positions[n.id]) {
           updateNode(n.id, { graphPosition: positions[n.id] });
         }
+      });
+    } else if (needsLayout) {
+      // New nodes added after initial layout — place near the center of existing nodes
+      const positioned = worldNodes.filter(n => n.graphPosition);
+      const cx = positioned.length > 0
+        ? positioned.reduce((s, n) => s + n.graphPosition!.x, 0) / positioned.length
+        : 0;
+      const cy = positioned.length > 0
+        ? positioned.reduce((s, n) => s + n.graphPosition!.y, 0) / positioned.length
+        : 0;
+      const unpositioned = worldNodes.filter(n => !n.graphPosition);
+      unpositioned.forEach((n, i) => {
+        const pos = { x: cx + (i - (unpositioned.length - 1) / 2) * 220, y: cy + 160 };
+        positions[n.id] = pos;
+        updateNode(n.id, { graphPosition: pos });
       });
     }
 
@@ -72,16 +87,29 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
   const buildEdges = useCallback(() => {
     if (!world) return [];
     const visibleNodeIds = new Set(nodes.map(n => n.id));
-    return world.edges
-      .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
-      .map(e => ({
+    const seen = new Set<string>();
+    const result: Edge[] = [];
+
+    for (const e of world.edges) {
+      if (!visibleNodeIds.has(e.source) || !visibleNodeIds.has(e.target)) continue;
+      // Deduplicate: use a canonical key so A→B and B→A map to the same slot
+      const pairKey = [e.source, e.target].sort().join('::');
+      if (seen.has(pairKey)) continue;
+      seen.add(pairKey);
+
+      const reverse = world.edges.find(r => r.source === e.target && r.target === e.source);
+      const effectiveType = (e.type === 'bidirectional' || reverse) ? 'bidirectional' : e.type;
+      result.push({
         id: e.id,
         source: e.source,
         target: e.target,
         type: 'worldEdge',
-        data: { label: e.label },
+        data: { label: e.label, type: effectiveType },
         animated: false,
-      }));
+      });
+    }
+
+    return result;
   }, [world, nodes]);
 
   useEffect(() => {
@@ -106,12 +134,10 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
 
   const handleNodeChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
-    // Persist position on drag end
-    changes.forEach(change => {
-      if (change.type === 'position' && change.dragging === false && change.position) {
-        updateNode(change.id, { graphPosition: change.position });
-      }
-    });
+  }, []);
+
+  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
+    updateNode(node.id, { graphPosition: node.position });
   }, [updateNode]);
 
   const handleEdgeChange = useCallback((changes: EdgeChange[]) => {
@@ -156,6 +182,7 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={handleNodeChange}
+        onNodeDragStop={handleNodeDragStop}
         onEdgesChange={handleEdgeChange}
         onNodeClick={handleNodeClickInternal}
         fitView

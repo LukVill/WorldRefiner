@@ -1,14 +1,16 @@
 import React from 'react';
 import { useReactFlow } from 'reactflow';
-import { Maximize2, RotateCcw } from 'lucide-react';
+import { Maximize2, RotateCcw, RefreshCw } from 'lucide-react';
 import { NodeType } from '../../types';
 import { NodeBadge } from '../shared/NodeBadge';
 import { useUIStore } from '../../store/uiStore';
+import { useWorldStore } from '../../store/worldStore';
 
 const ALL_TYPES: NodeType[] = ['character', 'location', 'faction', 'event', 'item', 'concept'];
 
 export function GraphControls({ onResetLayout }: { onResetLayout: () => void }) {
   const { fitView } = useReactFlow();
+  const resyncEdgesFromLinks = useWorldStore(s => s.resyncEdgesFromLinks);
   const graphTypeFilter = useUIStore(s => s.graphTypeFilter);
   const toggleGraphTypeFilter = useUIStore(s => s.toggleGraphTypeFilter);
   const clearGraphFilters = useUIStore(s => s.clearGraphFilters);
@@ -48,6 +50,14 @@ export function GraphControls({ onResetLayout }: { onResetLayout: () => void }) 
           title="Fit view"
         >
           <Maximize2 size={14} />
+        </button>
+        <button
+          onClick={() => { try { resyncEdgesFromLinks(); } catch {} }}
+          className="p-1.5 rounded hover:opacity-70 transition-opacity"
+          style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)' }}
+          title="Refresh relationships"
+        >
+          <RefreshCw size={14} />
         </button>
         <button
           onClick={onResetLayout}

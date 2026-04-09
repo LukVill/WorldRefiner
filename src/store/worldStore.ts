@@ -29,7 +29,10 @@ interface WorldStore {
   loadWorldFromDB: () => Promise<void>;
   loadSavedWorlds: () => Promise<void>;
   switchWorld: (id: string) => Promise<void>;
+  reloadWorld: () => Promise<void>;
   deleteWorld: (id: string) => Promise<void>;
+  renameWorld: (name: string) => void;
+  clearGraphPositions: () => void;
   importWorld: (json: string) => void;
   exportWorld: () => string;
 
@@ -121,6 +124,39 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
       const world = await loadWorld(id);
       if (world) set({ world, isDirty: false });
     } catch { /* ignore */ }
+  },
+
+  reloadWorld: async () => {
+    try {
+      const { world } = get();
+      if (!world) return;
+      const { loadWorld } = await import('./persistence');
+      const fresh = await loadWorld(world.id);
+      if (fresh) set({ world: fresh, isDirty: false });
+    } catch (err) {
+      console.error('Failed to reload world', err);
+    }
+  },
+
+  renameWorld: (name) => {
+    const { world } = get();
+    if (!world) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === world.name) return;
+    const newWorld = { ...world, name: trimmed, updatedAt: new Date().toISOString() };
+    set({ world: newWorld, isDirty: true });
+    get()._triggerSave();
+  },
+
+  clearGraphPositions: () => {
+    const { world } = get();
+    if (!world) return;
+    const nodes = Object.fromEntries(
+      Object.entries(world.nodes).map(([id, n]) => [id, { ...n, graphPosition: undefined }])
+    );
+    const newWorld = { ...world, nodes, updatedAt: new Date().toISOString() };
+    set({ world: newWorld, isDirty: true });
+    get()._triggerSave();
   },
 
   deleteWorld: async (id) => {
@@ -216,14 +252,36 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
       updated.links = get()._recomputeLinks(updated);
     }
 
+    // Sync edges based on updated.links: add directed edges for new links,
+    // and remove edges that no longer correspond to links originating from this node.
+    let edges = state.world.edges.slice();
+    if (changes.content !== undefined) {
+      const links = updated.links ?? [];
+      // remove edges where this node is the source but target is no longer linked
+      edges = edges.filter(e => !(e.source === id && !links.includes(e.target)));
+      // add missing edges for each linked target
+      links.forEach(targetId => {
+        // don't create self-links and ensure target exists
+        if (targetId === id) return;
+        if (!state.world!.nodes[targetId]) return;
+        const exists = edges.find(e => e.source === id && e.target === targetId);
+        if (!exists) {
+          edges.push({ id: nanoid(), source: id, target: targetId, label: undefined, type: 'directed' });
+        }
+      });
+    }
+
     const world = {
       ...state.world,
       nodes: { ...state.world.nodes, [id]: updated },
+      edges,
       updatedAt: new Date().toISOString(),
     };
 
     set({ world, isDirty: true });
     get()._triggerSave();
+    // Ensure inferred edges/backlinks reflect the updated links immediately
+    try { get().resyncEdgesFromLinks(); } catch (err) { console.error('resync failed', err); }
   },
 
   deleteNode: (id) => {
@@ -300,6 +358,37 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
     const { world } = get();
     if (!world) return [];
     return world.edges.filter(e => e.source === nodeId || e.target === nodeId);
+  },
+
+  // Rebuild edge list from node.links, preserving any existing edges that have labels.
+  resyncEdgesFromLinks: () => {
+    const { world } = get();
+    if (!world) return;
+
+    // desired pairs from node.links
+    const desired = new Set<string>();
+    Object.values(world.nodes).forEach(n => {
+      (n.links || []).forEach(t => {
+        if (t && t !== n.id && world.nodes[t]) desired.add(`${n.id}::${t}`);
+      });
+    });
+
+    const existing = world.edges || [];
+    // keep edges that have a label (considered manual) or are desired
+    const kept = existing.filter(e => (e.label && e.label.trim()) || desired.has(`${e.source}::${e.target}`));
+
+    // add missing desired edges
+    desired.forEach(pair => {
+      const [s, t] = pair.split('::');
+      const found = kept.find(e => e.source === s && e.target === t);
+      if (!found) {
+        kept.push({ id: nanoid(), source: s, target: t, label: undefined, type: 'directed' });
+      }
+    });
+
+    const newWorld = { ...world, edges: kept, updatedAt: new Date().toISOString() };
+    set({ world: newWorld, isDirty: true });
+    get()._triggerSave();
   },
 
   resolveSlug: (slug) => {

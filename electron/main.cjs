@@ -12,26 +12,88 @@ const http = require('http');
 const isForceProd = process.env.ELECTRON_FORCE_PROD === '1';
 const isDev = !(app.isPackaged || isForceProd);
 
-// Store data in the repo's data/ folder (dev) or userData (packaged)
-// Use process.cwd() in dev so files live in the project directory when running
-// `npx electron .` from the project root.
-const dataRoot = isDev
+// Global config lives in the user's appData so it is accessible before
+// we decide where the app's data root should be. This lets users point
+// the app at a custom folder where their world JSON files live.
+const globalConfigPath = path.join(app.getPath('userData'), 'config.json');
+
+// Load global config (if present) so we can honour an external data path
+// before computing `dataRoot`.
+let externalDataPath = null;
+try {
+  if (fs.existsSync(globalConfigPath)) {
+    const parsed = JSON.parse(fs.readFileSync(globalConfigPath, 'utf-8') || '{}');
+    if (parsed && typeof parsed.externalDataPath === 'string' && parsed.externalDataPath.trim()) {
+      externalDataPath = parsed.externalDataPath.trim();
+    }
+  }
+} catch (err) {
+  console.error('Failed to read global config', err);
+}
+
+// Store data in the repo's data/ folder (dev) or userData (packaged),
+// but allow overriding via `externalDataPath` from the global config.
+const defaultDataRoot = isDev
   ? path.join(process.cwd(), 'data')
   : path.join(app.getPath('userData'), 'data');
 
-const worldsDir = path.join(dataRoot, 'worlds');
-const configPath = path.join(dataRoot, 'config.json');
+const dataRoot = externalDataPath || defaultDataRoot;
+
+const configPath = globalConfigPath;
+
+function getDataRoot() {
+  try {
+    if (fs.existsSync(globalConfigPath)) {
+      const parsed = JSON.parse(fs.readFileSync(globalConfigPath, 'utf-8') || '{}');
+      if (parsed && typeof parsed.externalDataPath === 'string' && parsed.externalDataPath.trim()) {
+        return parsed.externalDataPath.trim();
+      }
+    }
+  } catch (err) {
+    console.error('Failed to read global config for dataRoot', err);
+  }
+  return dataRoot;
+}
+
+// Resolve the directory where world JSON files live.
+// Rules for a custom externalDataPath:
+//   1. If <customPath>/worlds/ exists → use it (honours an existing worlds folder).
+//   2. Otherwise → use <customPath> directly (the user pointed at the worlds folder itself).
+// For the built-in default path we always use <defaultDataRoot>/worlds/ and create it if needed.
+function getWorldsDir() {
+  const root = getDataRoot();
+  const subworlds = path.join(root, 'worlds');
+
+  // If a 'worlds' subfolder already exists inside the data root, use it.
+  if (fs.existsSync(subworlds) && fs.statSync(subworlds).isDirectory()) {
+    return subworlds;
+  }
+
+  // No 'worlds' subfolder found. Decide based on whether a custom path is active.
+  let hasCustomPath = false;
+  try {
+    if (fs.existsSync(globalConfigPath)) {
+      const cfg = JSON.parse(fs.readFileSync(globalConfigPath, 'utf-8') || '{}');
+      hasCustomPath = !!(cfg && typeof cfg.externalDataPath === 'string' && cfg.externalDataPath.trim());
+    }
+  } catch {}
+
+  // Custom path with no 'worlds' subfolder → treat the path itself as the worlds directory.
+  // Default path → create and use the 'worlds' subfolder as before.
+  return hasCustomPath ? root : subworlds;
+}
 
 function ensureDirs() {
-  fs.mkdirSync(worldsDir, { recursive: true });
+  fs.mkdirSync(getWorldsDir(), { recursive: true });
 }
 
 // ── IPC handlers ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('worlds:save', (_event, world) => {
   ensureDirs();
+  const worldsDirNow = getWorldsDir();
   fs.writeFileSync(
-    path.join(worldsDir, `${world.id}.json`),
+    path.join(worldsDirNow, `${world.id}.json`),
     JSON.stringify(world, null, 2),
     'utf-8'
   );
@@ -40,13 +102,16 @@ ipcMain.handle('worlds:save', (_event, world) => {
 
 ipcMain.handle('worlds:loadAll', () => {
   ensureDirs();
+  const worldsDirNow = getWorldsDir();
+  if (!fs.existsSync(worldsDirNow)) return [];
   return fs
-    .readdirSync(worldsDir)
+    .readdirSync(worldsDirNow)
     .filter(f => f.endsWith('.json'))
     .map(f => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(worldsDir, f), 'utf-8'));
-      } catch {
+        return JSON.parse(fs.readFileSync(path.join(worldsDirNow, f), 'utf-8'));
+      } catch (err) {
+        console.error('Failed to parse world file', f, err);
         return null;
       }
     })
@@ -54,18 +119,21 @@ ipcMain.handle('worlds:loadAll', () => {
 });
 
 ipcMain.handle('worlds:load', (_event, id) => {
-  const p = path.join(worldsDir, `${id}.json`);
+  const worldsDirNow = getWorldsDir();
+  const p = path.join(worldsDirNow, `${id}.json`);
   if (!fs.existsSync(p)) return null;
   try {
     return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch {
+  } catch (err) {
+    console.error('Failed to load world', id, err);
     return null;
   }
 });
 
 ipcMain.handle('worlds:delete', (_event, id) => {
   ensureDirs();
-  const p = path.join(worldsDir, `${id}.json`);
+  const worldsDirNow = getWorldsDir();
+  const p = path.join(worldsDirNow, `${id}.json`);
   const existed = fs.existsSync(p);
   try {
     if (existed) fs.unlinkSync(p);
@@ -77,16 +145,22 @@ ipcMain.handle('worlds:delete', (_event, id) => {
 });
 
 ipcMain.handle('config:save', (_event, config) => {
-  ensureDirs();
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-  return { ok: true };
+  try {
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config || {}, null, 2), 'utf-8');
+    return { ok: true };
+  } catch (err) {
+    console.error('Failed to save config', err);
+    return { ok: false, error: String(err) };
+  }
 });
 
 ipcMain.handle('config:load', () => {
   if (!fs.existsSync(configPath)) return {};
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-  } catch {
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) || {};
+  } catch (err) {
+    console.error('Failed to load config', err);
     return {};
   }
 });

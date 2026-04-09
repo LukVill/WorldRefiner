@@ -14,6 +14,7 @@ export function GraphView() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNode = useWorldStore(s => selectedNodeId ? s.world?.nodes[selectedNodeId] : undefined);
   const [layoutKey, setLayoutKey] = useState(0);
+  const clearGraphPositions = useWorldStore(s => s.clearGraphPositions);
 
   const handleNodeClick = (nodeId: string) => {
     setSelectedNodeId(nodeId);
@@ -26,6 +27,8 @@ export function GraphView() {
   };
 
   const handleResetLayout = () => {
+    // clear saved positions so layout will be recomputed and persisted
+    clearGraphPositions();
     setLayoutKey(k => k + 1);
   };
 

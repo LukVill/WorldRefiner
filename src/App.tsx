@@ -10,7 +10,7 @@ import { HoverCard } from './components/wiki/HoverCard';
 import { WorldManager } from './components/shared/WorldManager';
 import { useUIStore } from './store/uiStore';
 import { useWorldStore } from './store/worldStore';
-import { saveWorld as persistenceSaveWorld } from './store/persistence';
+import { saveWorld as persistenceSaveWorld, loadConfig as persistenceLoadConfig, saveConfig as persistenceSaveConfig } from './store/persistence';
 import { useTheme } from './hooks/useTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { themes } from './themes/index';
@@ -20,6 +20,7 @@ function SettingsPanel() {
   const world = useWorldStore(s => s.world);
   const importWorld = useWorldStore(s => s.importWorld);
   const exportWorld = useWorldStore(s => s.exportWorld);
+  const renameWorld = useWorldStore(s => s.renameWorld);
   const addToast = useUIStore(s => s.addToast);
   const updateTheme = useWorldStore(s => s.updateTheme);
   const loadSavedWorlds = useWorldStore(s => s.loadSavedWorlds);
@@ -54,6 +55,69 @@ function SettingsPanel() {
       reader.readAsText(file);
     };
     input.click();
+  };
+
+  const [worldNameInput, setWorldNameInput] = useState('');
+  useEffect(() => { setWorldNameInput(world?.name ?? ''); }, [world?.name]);
+
+  const handleSaveWorldName = () => {
+    if (!world) return;
+    const trimmed = worldNameInput.trim();
+    if (!trimmed) { addToast('Name cannot be empty', 'error'); return; }
+    renameWorld(trimmed);
+    addToast('World name updated', 'success');
+    setSettingsOpen(false);
+  };
+
+  // External data folder setting
+  const [externalPath, setExternalPath] = useState<string>('');
+  const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!isElectron) return;
+      try {
+        const cfg = await persistenceLoadConfig();
+        if (!mounted) return;
+        if (cfg && typeof cfg.externalDataPath === 'string') setExternalPath(cfg.externalDataPath);
+      } catch (err) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleSaveExternalPath = async () => {
+    try {
+      await persistenceSaveConfig({ externalDataPath: externalPath?.trim() || '' });
+      await loadSavedWorlds();
+      addToast('Data path saved. Reloading app to apply change.', 'success');
+      setSettingsOpen(false);
+      if (isElectron) {
+        // reload the renderer so main picks up the new config and filesystem root
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to save data path', 'error');
+    }
+  };
+
+  const handleClearExternalPath = async () => {
+    try {
+      await persistenceSaveConfig({});
+      setExternalPath('');
+      await loadSavedWorlds();
+      addToast('Data path cleared. Reloading app to apply change.', 'success');
+      setSettingsOpen(false);
+      if (isElectron) {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to clear data path', 'error');
+    }
   };
 
   return (
@@ -102,6 +166,24 @@ function SettingsPanel() {
 
           <div>
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-muted)' }}>Worlds</h3>
+            <div className="flex gap-2 mb-2">
+              <input
+                value={worldNameInput}
+                onChange={e => setWorldNameInput(e.target.value)}
+                disabled={!world}
+                placeholder={world ? 'World name' : 'No world loaded'}
+                className="flex-1 px-3 py-2 rounded text-sm outline-none"
+                style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+              />
+              <button
+                onClick={handleSaveWorldName}
+                disabled={!world}
+                className="px-3 py-2 rounded text-sm hover:opacity-80 transition-opacity"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-foreground)' }}
+              >
+                Save
+              </button>
+            </div>
             <button
               onClick={() => { setSettingsOpen(false); setWorldManagerOpen(true); }}
               className="w-full px-3 py-2 rounded text-sm hover:opacity-80 transition-opacity text-left"
@@ -128,6 +210,35 @@ function SettingsPanel() {
               >
                 Import JSON
               </button>
+            </div>
+            <div className="mt-4 space-y-2">
+              <label className="text-xs text-muted" style={{ color: 'var(--color-text-muted)' }}>Custom data folder (optional)</label>
+              <div className="flex gap-2">
+                <input
+                  value={externalPath}
+                  onChange={e => setExternalPath(e.target.value)}
+                  placeholder={isElectron ? 'C:\\path\\to\\data' : 'Available in Electron only'}
+                  className="flex-1 px-3 py-2 rounded text-sm outline-none"
+                  style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                  disabled={!isElectron}
+                />
+                <button
+                  onClick={handleSaveExternalPath}
+                  className="px-3 py-2 rounded text-sm hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-foreground)' }}
+                  disabled={!isElectron}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleClearExternalPath}
+                  className="px-3 py-2 rounded text-sm hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
+                  disabled={!isElectron}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
         </div>

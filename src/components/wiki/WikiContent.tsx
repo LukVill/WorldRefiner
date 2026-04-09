@@ -14,6 +14,7 @@ export function WikiContent({ node, onLinkClick, onBrokenLinkClick }: WikiConten
   const nodes = useWorldStore(s => s.world?.nodes ?? {});
   const setHoverCard = useUIStore(s => s.setHoverCard);
   const containerRef = useRef<HTMLDivElement>(null);
+  const mouseOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const html = renderMarkdown(node.content, nodes);
 
@@ -22,6 +23,11 @@ export function WikiContent({ node, onLinkClick, onBrokenLinkClick }: WikiConten
     const link = target.closest('.wiki-link') as HTMLElement | null;
     if (!link) return;
     e.preventDefault();
+    if (mouseOutTimerRef.current) {
+      clearTimeout(mouseOutTimerRef.current);
+      mouseOutTimerRef.current = null;
+    }
+    setHoverCard(null);
     if (link.classList.contains('broken')) {
       const text = link.dataset.text ?? '';
       if (text) onBrokenLinkClick(text);
@@ -29,12 +35,17 @@ export function WikiContent({ node, onLinkClick, onBrokenLinkClick }: WikiConten
       const id = link.dataset.id ?? '';
       if (id) onLinkClick(id);
     }
-  }, [onLinkClick, onBrokenLinkClick]);
+  }, [onLinkClick, onBrokenLinkClick, setHoverCard]);
 
   const handleMouseOver = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
     const link = target.closest('.wiki-link:not(.broken)') as HTMLElement | null;
     if (!link) return;
+    // Cancel any pending hide so moving between links keeps the card alive
+    if (mouseOutTimerRef.current) {
+      clearTimeout(mouseOutTimerRef.current);
+      mouseOutTimerRef.current = null;
+    }
     const id = link.dataset.id ?? '';
     if (id) {
       const rect = link.getBoundingClientRect();
@@ -45,7 +56,10 @@ export function WikiContent({ node, onLinkClick, onBrokenLinkClick }: WikiConten
   const handleMouseOut = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('.wiki-link')) {
-      setTimeout(() => setHoverCard(null), 200);
+      mouseOutTimerRef.current = setTimeout(() => {
+        mouseOutTimerRef.current = null;
+        setHoverCard(null);
+      }, 200);
     }
   }, [setHoverCard]);
 

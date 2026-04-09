@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default theme variables - dark fantasy */
+:root {
+  --color-background: #0f0d11;
+  --color-surface: #1c1820;
+  --color-surface-alt: #231f2b;
+  --color-border: #3d3548;
+  --color-border-subtle: #2a2533;
+  --color-primary: #c084fc;
+  --color-primary-foreground: #0f0d11;
+  --color-accent: #f87171;
+  --color-accent-foreground: #0f0d11;
+  --color-text: #e8e3f0;
+  --color-text-muted: #9d93b0;
+  --color-text-subtle: #5c5570;
+  --color-character: #818cf8;
+  --color-location: #34d399;
+  --color-event: #fbbf24;
+  --color-faction: #f472b6;
+  --color-item: #a78bfa;
+  --color-concept: #94a3b8;
+  --radius: 8px;
+  --anim-speed: 200ms;
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Crimson Pro', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+/* Wiki link styles in editor */
+.cm-wiki-link {
+  border-radius: 3px;
+  padding: 0 2px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.cm-wiki-link-resolved {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cm-wiki-link-broken {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  text-decoration: underline wavy;
+}
+
+/* Wiki content styles (rendered markdown) */
+.wiki-content {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  line-height: 1.75;
+}
+
+.wiki-content h1 {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 1.5rem 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.wiki-content h2 {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 1.5rem 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.wiki-content h3 {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 1.25rem 0 0.4rem;
+}
+
+.wiki-content p {
+  margin: 0.75rem 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+
+.wiki-content ul, .wiki-content ol {
+  padding-left: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.wiki-content li {
+  margin: 0.25rem 0;
+  font-family: var(--font-body);
+}
+
+.wiki-content code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-surface-alt);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  color: var(--color-primary);
+}
+
+.wiki-content pre {
+  background: var(--color-surface-alt);
+  padding: 1rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+}
+
+.wiki-content pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.wiki-content blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.wiki-content a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Wiki link spans in rendered content */
+.wiki-link {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border-radius: 3px;
+  padding: 0 3px;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: background var(--anim-speed);
+}
+
+.wiki-link:hover {
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.wiki-link.broken {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  text-decoration: underline wavy;
+}
+
+.wiki-link.broken:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* ReactFlow overrides */
+.react-flow__panel {
+  display: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+/* Typography */
+h1 { font-family: var(--font-heading); }
+h2 { font-family: var(--font-heading); }
+h3 { font-family: var(--font-heading); }

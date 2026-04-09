@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx create-vite@latest . --template react-ts)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm install:*)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('deps:', list\\(d.get\\('dependencies',{}\\).keys\\(\\)\\)\\); print\\('devdeps:', list\\(d.get\\('devDependencies',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(npx tailwindcss:*)",
+      "Bash(./node_modules/.bin/tailwindcss init:*)",
+      "Bash(node_modules/.bin/tailwindcss init:*)",
+      "Bash(npm list:*)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); pkgs=d.get\\('packages',{}\\); print\\('tailwindcss' in str\\(list\\(pkgs.keys\\(\\)\\)\\)[:500]\\); print\\(list\\(pkgs.keys\\(\\)\\)[:5]\\)\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); pkgs=d.get\\('packages',{}\\); [print\\(k\\) for k in pkgs.keys\\(\\) if 'tailwind' in k or 'postcss' in k]\")",
+      "Bash(npm ci:*)",
+      "Bash(npm run:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(node node_modules/.bin/tsc --noEmit)",
+      "Bash(dir \"c:/Users/Luke Villanueva/source/repos/LukVill/WorldRefiner/node_modules/typescript/bin/\")",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node -e \"const tsc = require\\('./node_modules/typescript'\\); console.log\\(tsc.version\\)\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules' -Name | Select-Object -First 20\")",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\electron\\\\main.cjs'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\electron\\\\preload.cjs'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\src\\\\electron.d.ts'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\data\\\\worlds'\")",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\vite'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\wait-on'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\electron'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\.bin\\\\vite.cmd'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\.bin\\\\electron.cmd'\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules' -Name | Measure-Object | Select-Object -ExpandProperty Count\")",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\reactflow'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\zustand'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\react'\")",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules'; Remove-Item -Force 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\package-lock.json' -ErrorAction SilentlyContinue; Write-Host 'done'\")",
+      "Bash(npm config:*)",
+      "Bash(npm root:*)",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules' -Name | head -30\")",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\package.json'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\package.json'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\.npmrc'\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\.bin' -Name | Select-String -Pattern 'vite|electron|concurrently|wait-on|tsc'\")"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+node_modules
+dist
+
+# World data — stored locally, not committed
+data/worlds/

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\node_modules\\\\vite'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\node_modules\\\\vite'; Test-Path 'C:\\\\Users\\\\Luke Villanueva\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\vite'\")",
+      "Bash(npm ls:*)",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\node_modules\\\\.bin' -Name | Select-String -Pattern 'vite|electron|concurrently|wait'\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\Luke Villanueva\\\\source\\\\repos\\\\LukVill\\\\WorldRefiner\\\\data\\\\worlds' -ErrorAction SilentlyContinue | Select-Object Name, Length, LastWriteTime\")"
+    ]
+  }
+}

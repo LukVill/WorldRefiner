@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge } from 'reactflow';
+import { GraphHoverContext } from './GraphHoverContext';
 
 export function GraphEdge({
-  id, sourceX, sourceY, targetX, targetY,
+  id, source, target, sourceX, sourceY, targetX, targetY,
   sourcePosition, targetPosition, data, selected,
 }: EdgeProps) {
   const [hovered, setHovered] = useState(false);
+  const hoveredNodeId = useContext(GraphHoverContext);
+
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const showLabel = (hovered || selected) && data?.label;
+
+  const isActive = hoveredNodeId !== null;
+  const isConnected = source === hoveredNodeId || target === hoveredNodeId;
+
+  const edgeColor = selected || (isActive && isConnected)
+    ? 'var(--color-primary)'
+    : 'var(--color-border)';
+  const edgeOpacity = isActive && !isConnected ? 0.12 : 1;
+  const edgeWidth = selected || (isActive && isConnected) ? 2.5 : 1.5;
+  const edgeFilter = isActive && isConnected
+    ? 'drop-shadow(0 0 6px color-mix(in srgb, var(--color-primary) 80%, transparent))'
+    : undefined;
+
+  const arrowFill = selected || (isActive && isConnected)
+    ? 'var(--color-primary)'
+    : 'var(--color-border)';
 
   // helper to render an arrowhead at (x,y) pointing along angle (radians)
   const renderArrow = (x: number, y: number, angle: number, key: string) => {
@@ -20,7 +39,7 @@ export function GraphEdge({
     const deg = (angle * 180) / Math.PI;
     return (
       <g key={key} transform={`translate(${x},${y}) rotate(${deg})`}>
-        <polygon points={points} fill={selected ? 'var(--color-primary)' : 'var(--color-border)'} />
+        <polygon points={points} fill={arrowFill} />
       </g>
     );
   };
@@ -39,9 +58,11 @@ export function GraphEdge({
         id={id}
         path={edgePath}
         style={{
-          stroke: selected ? 'var(--color-primary)' : 'var(--color-border)',
-          strokeWidth: selected ? 2 : 1.5,
-          transition: 'stroke 0.15s',
+          stroke: edgeColor,
+          strokeWidth: edgeWidth,
+          strokeOpacity: edgeOpacity,
+          filter: edgeFilter,
+          transition: 'stroke 0.2s, stroke-width 0.2s, stroke-opacity 0.2s, filter 0.2s',
         }}
       />
       {/* Invisible thick path for easier hover */}
@@ -54,7 +75,7 @@ export function GraphEdge({
         onMouseLeave={() => setHovered(false)}
       />
       {/* direction indicators */}
-      <g pointerEvents="none">
+      <g pointerEvents="none" style={{ opacity: edgeOpacity, transition: 'opacity 0.2s' }}>
         {data?.type === 'directed' && renderArrow(targetArrowX, targetArrowY, angle, 'arrow-target')}
         {data?.type === 'bidirectional' && (
           <>

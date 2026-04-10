@@ -11,6 +11,7 @@ import { useUIStore } from '../../store/uiStore';
 import { computeDagreLayout } from '../../utils/graphLayout';
 import { GraphNode } from './GraphNode';
 import { GraphEdge } from './GraphEdge';
+import { GraphHoverContext } from './GraphHoverContext';
 import { WorldNode } from '../../types';
 
 const nodeTypes = { worldNode: GraphNode };
@@ -36,6 +37,7 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [edgeCreation, setEdgeCreation] = useState<EdgeCreationState>({ sourceId: null });
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [edgeLabelInput, setEdgeLabelInput] = useState('');
   const [edgeLabelPos, setEdgeLabelPos] = useState<{ x: number; y: number; targetId: string } | null>(null);
   const layoutDoneRef = useRef(false);
@@ -162,6 +164,14 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
     setEdgeLabelPos(null);
   };
 
+  const handleNodeMouseEnter = useCallback((_event: React.MouseEvent, node: Node) => {
+    setHoveredNodeId(node.id);
+  }, []);
+
+  const handleNodeMouseLeave = useCallback(() => {
+    setHoveredNodeId(null);
+  }, []);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       setEdgeCreation({ sourceId: null });
@@ -175,6 +185,7 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
   }, [handleKeyDown]);
 
   return (
+    <GraphHoverContext.Provider value={hoveredNodeId}>
     <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', cursor: edgeCreation.sourceId ? 'crosshair' : 'default', minHeight: 0 }}>
       <ReactFlow
         nodes={nodes}
@@ -185,6 +196,8 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
         onNodeDragStop={handleNodeDragStop}
         onEdgesChange={handleEdgeChange}
         onNodeClick={handleNodeClickInternal}
+        onNodeMouseEnter={handleNodeMouseEnter}
+        onNodeMouseLeave={handleNodeMouseLeave}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.05}
@@ -226,6 +239,7 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
         </div>
       )}
     </div>
+    </GraphHoverContext.Provider>
   );
 }
 

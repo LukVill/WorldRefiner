@@ -4,3 +4,5 @@ dist
 # Local data — stored locally, not committed
 data/worlds/
 data/config.json
+
+.claude

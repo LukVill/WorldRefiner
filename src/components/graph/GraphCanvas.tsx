@@ -25,14 +25,22 @@ interface EdgeCreationState {
   sourceId: string | null;
 }
 
+interface SelectionRect {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
 function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
   const world = useWorldStore(s => s.world);
   const updateNode = useWorldStore(s => s.updateNode);
+  const deleteNode = useWorldStore(s => s.deleteNode);
   const createEdge = useWorldStore(s => s.createEdge);
   const graphTypeFilter = useUIStore(s => s.graphTypeFilter);
   const graphFocusNodeId = useUIStore(s => s.graphFocusNodeId);
   const setGraphFocus = useUIStore(s => s.setGraphFocus);
-  const { fitView, setCenter } = useReactFlow();
+  const { fitView, setCenter, project } = useReactFlow();
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -40,7 +48,17 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [edgeLabelInput, setEdgeLabelInput] = useState('');
   const [edgeLabelPos, setEdgeLabelPos] = useState<{ x: number; y: number; targetId: string } | null>(null);
+  const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
   const layoutDoneRef = useRef(false);
+  const isSelectingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Stable refs to avoid stale closures in document-level listeners
+  const nodesRef = useRef<Node[]>(nodes);
+  nodesRef.current = nodes;
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const edgeCreationRef = useRef(edgeCreation);
+  edgeCreationRef.current = edgeCreation;
 
   const buildNodes = useCallback(() => {
     if (!world) return [];
@@ -116,7 +134,11 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
 
   useEffect(() => {
     const newNodes = buildNodes();
-    setNodes(newNodes);
+    // Preserve selection state across world rebuilds (e.g. after drag saves position)
+    setNodes(prev => {
+      const selectedIds = new Set(prev.filter(n => n.selected).map(n => n.id));
+      return newNodes.map(n => ({ ...n, selected: selectedIds.has(n.id) }));
+    });
   }, [world?.nodes, graphTypeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -134,12 +156,87 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
     }
   }, [graphFocusNodeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Document-level mouse handlers for right-click drag selection
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isSelectingRef.current) return;
+      setSelectionRect(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+    };
+
+    const handleMouseUp = (_e: MouseEvent) => {
+      if (!isSelectingRef.current) return;
+      isSelectingRef.current = false;
+
+      setSelectionRect(prev => {
+        if (!prev) return null;
+
+        const minX = Math.min(prev.startX, prev.currentX);
+        const maxX = Math.max(prev.startX, prev.currentX);
+        const minY = Math.min(prev.startY, prev.currentY);
+        const maxY = Math.max(prev.startY, prev.currentY);
+
+        // Ignore tiny drags (treat as accidental right-click)
+        if (maxX - minX < 5 && maxY - minY < 5) return null;
+
+        // Convert screen coordinates to flow coordinates via the RF container rect
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        if (!containerRect) return null;
+
+        const topLeft = projectRef.current({ x: minX - containerRect.left, y: minY - containerRect.top });
+        const bottomRight = projectRef.current({ x: maxX - containerRect.left, y: maxY - containerRect.top });
+
+        // Select nodes whose bounding box overlaps the selection rectangle
+        setNodes(nds => nds.map(n => ({
+          ...n,
+          selected:
+            n.position.x + 160 >= topLeft.x &&
+            n.position.x <= bottomRight.x &&
+            n.position.y + 56 >= topLeft.y &&
+            n.position.y <= bottomRight.y,
+        })));
+
+        return null;
+      });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleContainerMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 2) return;
+    if (edgeCreationRef.current.sourceId) return;
+    // Only start selection when clicking on the empty canvas, not on a node
+    const isOnNode = (e.target as HTMLElement).closest('.react-flow__node') !== null;
+    if (isOnNode) return;
+
+    e.preventDefault();
+    isSelectingRef.current = true;
+    setSelectionRect({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    // Suppress the browser context menu so right-click drag feels clean
+    e.preventDefault();
+  }, []);
+
   const handleNodeChange = useCallback((changes: NodeChange[]) => {
     setNodes(nds => applyNodeChanges(changes, nds));
   }, []);
 
   const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
+    // Always save the primary dragged node first
     updateNode(node.id, { graphPosition: node.position });
+    // Also persist all other selected nodes — nodesRef has the correct
+    // post-drag positions that React Flow updated via onNodesChange during the drag.
+    // Doing this here (rather than in onSelectionDragStop) ensures positions are
+    // saved before the world rebuild triggered by the updateNode call above.
+    const otherSelected = nodesRef.current.filter(n => n.selected && n.id !== node.id);
+    otherSelected.forEach(n => updateNode(n.id, { graphPosition: n.position }));
   }, [updateNode]);
 
   const handleEdgeChange = useCallback((changes: EdgeChange[]) => {
@@ -172,21 +269,36 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
     setHoveredNodeId(null);
   }, []);
 
+  const handleDeleteSelected = useCallback(() => {
+    const selectedIds = nodesRef.current.filter(n => n.selected).map(n => n.id);
+    selectedIds.forEach(id => deleteNode(id));
+  }, [deleteNode]);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       setEdgeCreation({ sourceId: null });
       setEdgeLabelPos(null);
     }
-  }, []);
+    if (e.key === 'Delete') {
+      handleDeleteSelected();
+    }
+  }, [handleDeleteSelected]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  const selectedCount = nodes.filter(n => n.selected).length;
+
   return (
     <GraphHoverContext.Provider value={hoveredNodeId}>
-    <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', cursor: edgeCreation.sourceId ? 'crosshair' : 'default', minHeight: 0 }}>
+    <div
+      ref={containerRef}
+      style={{ flex: 1, position: 'relative', width: '100%', height: '100%', cursor: edgeCreation.sourceId ? 'crosshair' : 'default', minHeight: 0 }}
+      onMouseDown={handleContainerMouseDown}
+      onContextMenu={handleContextMenu}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -208,6 +320,71 @@ function GraphCanvasInner({ onNodeClick }: GraphCanvasProps) {
       >
         <Background color="var(--color-border)" gap={24} size={1} />
       </ReactFlow>
+
+      {/* Right-click drag selection rectangle */}
+      {selectionRect && (() => {
+        const left = Math.min(selectionRect.startX, selectionRect.currentX);
+        const top = Math.min(selectionRect.startY, selectionRect.currentY);
+        const width = Math.abs(selectionRect.currentX - selectionRect.startX);
+        const height = Math.abs(selectionRect.currentY - selectionRect.startY);
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left,
+              top,
+              width,
+              height,
+              border: '1.5px solid var(--color-primary)',
+              background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+              pointerEvents: 'none',
+              zIndex: 10,
+              borderRadius: 2,
+            }}
+          />
+        );
+      })()}
+
+      {/* Floating toolbar when nodes are selected */}
+      {selectedCount > 0 && !selectionRect && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+            padding: '5px 10px 5px 12px',
+            fontSize: 12,
+            color: 'var(--color-text-muted)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            userSelect: 'none',
+          }}
+        >
+          <span>{selectedCount} node{selectedCount !== 1 ? 's' : ''} selected · drag to move</span>
+          <button
+            onClick={handleDeleteSelected}
+            style={{
+              background: 'var(--color-destructive, #ef4444)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '2px 9px',
+              cursor: 'pointer',
+              fontSize: 11,
+              fontWeight: 600,
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
       {edgeLabelPos && (
         <div

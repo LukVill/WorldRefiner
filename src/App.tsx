@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Network, Search, X } from 'lucide-react';
+import { BookOpen, Network, Search, X, Milestone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { WikiView } from './views/WikiView';
 import { GraphView } from './views/GraphView';
+import { TimelineView } from './views/TimelineView';
 import { SearchPalette } from './components/shared/SearchPalette';
 import { Toaster } from './components/shared/Toaster';
 import { HoverCard } from './components/wiki/HoverCard';
 import { WorldManager } from './components/shared/WorldManager';
 import { useUIStore } from './store/uiStore';
 import { useWorldStore } from './store/worldStore';
-import { saveWorld as persistenceSaveWorld, loadConfig as persistenceLoadConfig, saveConfig as persistenceSaveConfig } from './store/persistence';
+import { loadConfig as persistenceLoadConfig, saveConfig as persistenceSaveConfig } from './store/persistence';
 import { useTheme } from './hooks/useTheme';
 import { useKeyboard } from './hooks/useKeyboard';
 import { themes } from './themes/index';
@@ -255,42 +256,9 @@ export default function App() {
   const setSearchOpen = useUIStore(s => s.setSearchOpen);
   const storageUnavailable = useWorldStore(s => s.storageUnavailable);
   const loadWorldFromDB = useWorldStore(s => s.loadWorldFromDB);
-  const world = useWorldStore(s => s.world);
-  const loadSavedWorlds = useWorldStore(s => s.loadSavedWorlds);
 
   useTheme();
   useKeyboard();
-
-  const addToast = useUIStore(s => s.addToast);
-
-  // confirmation flow: first click arms the button, second click within timeout performs save
-  const [confirmSave, setConfirmSave] = useState(false);
-  const confirmTimeoutMs = 5000;
-
-  const handleSaveClick = async () => {
-    if (!world) {
-      addToast('No world loaded', 'error');
-      return;
-    }
-
-    if (!confirmSave) {
-      setConfirmSave(true);
-      addToast('Click Save again to confirm overwrite', 'info');
-      setTimeout(() => setConfirmSave(false), confirmTimeoutMs);
-      return;
-    }
-
-    // perform save
-    try {
-      await persistenceSaveWorld(world);
-      await loadSavedWorlds();
-      setConfirmSave(false);
-      addToast('World saved', 'success');
-    } catch (e) {
-      console.error('Save failed', e);
-      addToast('Save failed', 'error');
-    }
-  };
 
   useEffect(() => {
     loadWorldFromDB();
@@ -331,22 +299,19 @@ export default function App() {
             <Network size={14} />
             Graph
           </button>
+          <button
+            onClick={() => setActiveView('timeline')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors"
+            style={{
+              background: activeView === 'timeline' ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)' : 'transparent',
+              color: activeView === 'timeline' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            }}
+          >
+            <Milestone size={14} />
+            Timeline
+          </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={handleSaveClick}
-            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm hover:opacity-80 transition-opacity"
-            style={{
-              background: confirmSave ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'var(--color-surface-alt)',
-              color: confirmSave ? 'var(--color-accent)' : 'var(--color-text-muted)',
-              border: '1px solid var(--color-border)',
-            }}
-            title={confirmSave ? 'Click to confirm save' : 'Save world'}
-          >
-            {/* Use the Save label; icon can be added if desired */}
-            <span>{confirmSave ? 'Confirm Save' : 'Save'}</span>
-          </button>
-
           <button
             onClick={() => setSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 rounded text-sm hover:opacity-80 transition-opacity"
@@ -368,9 +333,13 @@ export default function App() {
               <motion.div key="wiki" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="flex-1 flex overflow-hidden">
                 <WikiView />
               </motion.div>
-            ) : (
+            ) : activeView === 'graph' ? (
               <motion.div key="graph" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="flex-1 flex overflow-hidden">
                 <GraphView />
+              </motion.div>
+            ) : (
+              <motion.div key="timeline" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }} className="flex-1 flex overflow-hidden">
+                <TimelineView />
               </motion.div>
             )}
           </AnimatePresence>

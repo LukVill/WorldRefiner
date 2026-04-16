@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { NodeType } from '../types';
 
-type ActiveView = 'wiki' | 'graph';
+type ActiveView = 'wiki' | 'graph' | 'timeline';
 type PanelState = 'editor' | 'preview';
 
 interface UIStore {

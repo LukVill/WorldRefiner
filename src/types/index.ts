@@ -16,6 +16,7 @@ export interface WorldNode {
   tags: string[];
   links: string[];
   graphPosition?: { x: number; y: number };
+  timelineOrder?: number;
   metadata: {
     createdAt: string;
     updatedAt: string;

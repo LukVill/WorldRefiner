@@ -35,7 +35,10 @@ export function GraphView() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: 'var(--color-background)', overflow: 'hidden' }}>
       <ReactFlowProvider>
-        <GraphControls onResetLayout={handleResetLayout} />
+        <GraphControls
+          onResetLayout={handleResetLayout}
+          onNodeCreated={nodeId => setSelectedNodeId(nodeId)}
+        />
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <GraphCanvas key={layoutKey} onNodeClick={handleNodeClick} />
           {/* Right panel for selected node */}

@@ -188,6 +188,60 @@ body {
   background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
+/* Timeline card compact markdown ─────────────────────────────────────────── */
+.timeline-card-content {
+  font-family: var(--font-body);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+.timeline-card-content h1,
+.timeline-card-content h2,
+.timeline-card-content h3,
+.timeline-card-content h4 {
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0.45rem 0 0.2rem;
+}
+.timeline-card-content p {
+  margin: 0.3rem 0;
+}
+.timeline-card-content ul,
+.timeline-card-content ol {
+  padding-left: 1.1rem;
+  margin: 0.3rem 0;
+}
+.timeline-card-content li {
+  margin: 0.1rem 0;
+}
+.timeline-card-content strong { color: var(--color-text); }
+.timeline-card-content em    { font-style: italic; }
+.timeline-card-content code {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  background: var(--color-surface-alt);
+  padding: 0.05em 0.25em;
+  border-radius: 3px;
+  color: var(--color-primary);
+}
+.timeline-card-content blockquote {
+  border-left: 2px solid var(--color-primary);
+  padding-left: 0.6rem;
+  margin-left: 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.timeline-card-content pre {
+  display: none; /* code blocks too wide for cards */
+}
+/* Wiki links inside timeline cards — no pointer, just styled */
+.timeline-card-content .wiki-link {
+  cursor: default;
+  pointer-events: none;
+}
+
 /* ReactFlow overrides */
 .react-flow__panel {
   display: none;

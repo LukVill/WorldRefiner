@@ -37,8 +37,9 @@ interface WorldStore {
   exportWorld: () => string;
 
   createNode: (type: NodeType, title?: string) => WorldNode;
-  updateNode: (id: string, changes: Partial<Pick<WorldNode, 'title' | 'content' | 'tags' | 'metadata' | 'graphPosition'>>) => void;
+  updateNode: (id: string, changes: Partial<Pick<WorldNode, 'title' | 'content' | 'tags' | 'metadata' | 'graphPosition' | 'timelineOrder'>>) => void;
   deleteNode: (id: string) => void;
+  reorderTimelineNodes: (orderedIds: string[]) => void;
 
   createEdge: (source: string, target: string, label?: string, type?: WorldEdge['type']) => WorldEdge;
   updateEdge: (id: string, changes: Partial<WorldEdge>) => void;
@@ -202,6 +203,16 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
     if (!world) throw new Error('No world loaded');
     const defaults = nodeDefaults[type];
     const nodeTitle = title || `New ${type}`;
+
+    // For events, assign the next timelineOrder after the current max
+    let timelineOrder: number | undefined;
+    if (type === 'event') {
+      const maxOrder = Object.values(world.nodes)
+        .filter(n => n.type === 'event' && n.timelineOrder !== undefined)
+        .reduce((max, n) => Math.max(max, n.timelineOrder!), -1);
+      timelineOrder = maxOrder + 1;
+    }
+
     const node: WorldNode = {
       id: nanoid(),
       type,
@@ -211,6 +222,7 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
       excerpt: '',
       tags: [],
       links: [],
+      ...(timelineOrder !== undefined ? { timelineOrder } : {}),
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -292,6 +304,23 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
     const edges = world.edges.filter(e => e.source !== id && e.target !== id);
     const newWorld = { ...world, nodes, edges, updatedAt: new Date().toISOString() };
     set({ world: newWorld, isDirty: true });
+    get()._triggerSave();
+  },
+
+  reorderTimelineNodes: (orderedIds) => {
+    const { world } = get();
+    if (!world) return;
+    const nodes = { ...world.nodes };
+    orderedIds.forEach((id, index) => {
+      if (nodes[id]) {
+        nodes[id] = {
+          ...nodes[id],
+          timelineOrder: index,
+          metadata: { ...nodes[id].metadata, updatedAt: new Date().toISOString() },
+        };
+      }
+    });
+    set({ world: { ...world, nodes, updatedAt: new Date().toISOString() }, isDirty: true });
     get()._triggerSave();
   },
 

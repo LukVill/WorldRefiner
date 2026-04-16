@@ -1,10 +1,20 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.  
-This project adheres to Semantic Versioning.
+---
+
+
+## [0.5.0]
+
+### Added
+- Multi-select delete and move functionality in graph view
+- Changelog following Semantic Versioning
+
+### Removed
+- Removed Claude-related data from repository
 
 
 ---
+
 
 ## [0.4.0] 
 
@@ -37,7 +47,7 @@ This project adheres to Semantic Versioning.
 ## [0.1.0] 
 
 ### Added
-- Initial stable release of WorldRefiner
+- Initial functional release of WorldRefiner
 - Wiki view for structured world-building and reference navigation
 - Graph view for visualizing relationships between nodes
 - Support for creating and managing a single world
